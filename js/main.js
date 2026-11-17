@@ -9,16 +9,26 @@
   /* ---------- Настройки внедрения ---------- */
   const CONFIG = {
     FORM_ENDPOINT: "",              // URL обработчика заявок (CRM / вебхук). Пусто: заявка никуда не уходит, показывается только экран успеха
-    YM_COUNTER: null,               // номер счётчика Яндекс Метрики (на /family стоит 111595291)
-    GOAL: "family_catalog",
     QUIZ_ID: "6aed6ebedb3d61000ff6911d",
-    OFFER: "Семейные квартиры от 210 000 ₽/м² (offer=semya210)"
+    OFFER: "Семейные квартиры от 210 000 ₽/м² (offer=semya210)",
+    // Цели Метрики со страницы (тип «JavaScript-событие»). Номер счётчика — window.YM_ID в index.html.
+    // Цели внутри квиза (шаги, контакты, отправка) шлёт сам Marquiz — см. README.md
+    GOALS: {
+      quizOpen: "quiz_open",        // открыл квиз Marquiz кнопкой «Подобрать квартиру»
+      formFill: "form_fill",        // заполнил форму «Получить каталог»: имя и телефон введены верно
+      formSubmit: "form_submit"     // отправил форму «Получить каталог»
+    }
   };
 
   const $ = (s, c) => (c || document).querySelector(s);
   const $$ = (s, c) => Array.from((c || document).querySelectorAll(s));
-  const root = document.documentElement;
-  if (/[?&]check\b/.test(location.search)) root.classList.add("check-mode");
+
+  /* ---------- Цели: Яндекс Метрика + dataLayer (для GTM) ---------- */
+  const goal = name => {
+    window.dataLayer = window.dataLayer || [];
+    window.dataLayer.push({ event: name });
+    if (typeof window.ym === "function" && window.YM_ID) window.ym(window.YM_ID, "reachGoal", name);
+  };
 
   /* ---------- Мягкое появление при прокрутке ---------- */
   const items = $$("[data-fade]");
@@ -51,6 +61,8 @@
   const QUIZ_PAGE = "https://mrqz.me/" + CONFIG.QUIZ_ID;
   // страница открыта из папки (file://): Marquiz строит адреса квиза без протокола, и они не грузятся
   const isFile = location.protocol === "file:";
+  // цель «открыл квиз»: ловим клик раньше Marquiz (фаза перехвата), чтобы он не успел его остановить
+  document.addEventListener("click", e => { if (e.target.closest("[data-quiz]")) goal(CONFIG.GOALS.quizOpen); }, true);
   // делегирование: работает и для ссылки «Открыть квиз», которая появляется позже
   document.addEventListener("click", e => {
     const a = e.target.closest("[data-quiz]");
@@ -130,6 +142,12 @@
     return out;
   };
   let tried = false;
+  // цель «заполнил форму»: один раз, когда имя и телефон введены верно
+  let filled = false;
+  const nameOk = () => name.value.trim().length >= 2;
+  const phoneOk = () => digits(phone.value).replace(/^7/, "").length === 10;
+  const checkFilled = () => { if (!filled && nameOk() && phoneOk()) { filled = true; goal(CONFIG.GOALS.formFill); } };
+  [name, phone].forEach(el => el.addEventListener("input", checkFilled));
   phone.addEventListener("focus", () => { if (!phone.value) phone.value = "+7 "; });
   phone.addEventListener("blur", () => { if (digits(phone.value).length <= 1) phone.value = ""; });
   phone.addEventListener("input", () => {
@@ -147,8 +165,8 @@
   }
   function validate() {
     const checks = [
-      [name, name.value.trim().length >= 2],
-      [phone, digits(phone.value).replace(/^7/, "").length === 10],
+      [name, nameOk()],
+      [phone, phoneOk()],
       [consent, consent.checked],
       [ads, ads.checked]
     ];
@@ -176,9 +194,7 @@
         await new Promise(r => setTimeout(r, 400));
         console.warn("[Баланс] FORM_ENDPOINT не задан: заявка никуда не отправлена", data);
       }
-      window.dataLayer = window.dataLayer || [];
-      window.dataLayer.push({ event: CONFIG.GOAL });
-      if (window.ym && CONFIG.YM_COUNTER) window.ym(CONFIG.YM_COUNTER, "reachGoal", CONFIG.GOAL);
+      goal(CONFIG.GOALS.formSubmit);
       status.textContent = "";
       form.reset(); tried = false;
       $$("[aria-invalid]", form).forEach(el => el.setAttribute("aria-invalid", "false"));

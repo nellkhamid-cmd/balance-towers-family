@@ -361,9 +361,6 @@ button { font: inherit; color: inherit; }
 .success__ico svg { width: 26px; height: 26px; }
 .success .btn { margin-top: 18px; }
 
-/* ---------- Проверка формулировок: ?check ---------- */
-.check-mode .tbc { outline: 1px dashed #FF5A36; outline-offset: 2px; background: rgba(255, 90, 54, .15); }
-
 /* ---------- Мягкое появление при прокрутке ---------- */
 @media (prefers-reduced-motion: no-preference) {
   .js [data-fade] { opacity: 0; transform: translateY(20px); transition: opacity .8s var(--ease), transform .9s var(--ease); transition-delay: calc(var(--d, 0) * 80ms); }
